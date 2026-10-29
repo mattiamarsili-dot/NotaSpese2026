@@ -75,7 +75,10 @@
         <i data-lucide="list" class="inline w-3.5 h-3.5 mr-1 align-middle"></i>ELENCO 
       </button> 
       <button class="tab-btn flex-1 py-2.5 text-xs font-semibold text-center border-b-2 transition-all text-muted border-transparent" data-tab="stats"> 
-        <i data-lucide="bar-chart-3" class="inline w-3.5 h-3.5 mr-1 align-middle"></i>RIEPILOGO 
+        <i data-lucide="bar-chart-3" class="inline w-3.5 h-3.5 mr-1 align-middle"></i>RIEPILOGO
+      </button>
+      <button class="tab-btn flex-1 py-2.5 text-xs font-semibold text-center border-b-2 transition-all text-muted border-transparent" data-tab="check">
+        <i data-lucide="scan-line" class="inline w-3.5 h-3.5 mr-1 align-middle"></i>CONTROLLO
       </button>
     </nav>
     
@@ -190,6 +193,61 @@
 
       <div id="monthBreakdown" class="space-y-3"></div>
     </div>
+
+    <!-- Check Panel: scontrini fotografati vs estratto carta -->
+    <div id="panel-check" class="panel flex-1 p-4 scroll-area hidden">
+
+      <!-- Impostazioni IA -->
+      <details id="aiSettings" class="bg-surface border border-border rounded-2xl p-4 mb-4">
+        <summary class="text-[10px] font-bold tracking-widest text-muted uppercase cursor-pointer">⚙️ Impostazioni IA (chiave Gemini)</summary>
+        <p class="text-xs text-muted mt-3 mb-2">Chiave gratuita da <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="text-accent underline">aistudio.google.com/apikey</a>. Resta salvata solo su questo dispositivo.</p>
+        <input type="password" id="apiKeyInput" placeholder="Incolla la chiave API" autocomplete="off" class="w-full bg-surface2 border border-border rounded-xl text-white text-sm px-3 py-2.5 outline-none mb-2">
+        <input type="text" id="modelInput" placeholder="gemini-flash-latest" class="w-full bg-surface2 border border-border rounded-xl text-white mono text-xs px-3 py-2.5 outline-none mb-2">
+        <button id="saveAiSettingsBtn" class="w-full bg-accent/10 border border-accent/30 text-accent font-semibold text-xs py-2.5 rounded-lg">SALVA IMPOSTAZIONI</button>
+      </details>
+
+      <!-- 1. Scontrini -->
+      <div class="bg-surface border border-border rounded-2xl p-4 mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-[10px] font-bold tracking-widest text-muted uppercase">1 · Foto scontrini</label>
+          <span id="receiptCount" class="text-xs text-muted mono">0 letti</span>
+        </div>
+        <p class="text-xs text-muted mb-3">Scontrini stesi su fondo scuro, non sovrapposti, 8–12 per foto. Puoi scegliere più foto insieme.</p>
+        <label class="w-full bg-accent text-bg font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-1 cursor-pointer">
+          <i data-lucide="camera" class="w-4 h-4"></i> <span id="photoBtnText">FOTOGRAFA / SCEGLI FOTO</span>
+          <input type="file" id="receiptPhotos" accept="image/*" multiple class="hidden">
+        </label>
+        <div class="flex gap-2 mt-2">
+          <label class="flex-1 bg-surface2 border border-border text-white font-semibold text-[11px] py-2 rounded-lg flex items-center justify-center cursor-pointer">
+            Importa CSV scontrini
+            <input type="file" id="receiptCsv" accept=".csv,text/csv,text/plain" class="hidden">
+          </label>
+          <button id="clearReceiptsBtn" class="flex-1 bg-surface2 border border-border text-red-400/80 font-semibold text-[11px] py-2 rounded-lg">Svuota scontrini</button>
+        </div>
+        <div id="receiptList" class="space-y-1.5 mt-3"></div>
+      </div>
+
+      <!-- 2. Estratto carta -->
+      <div class="bg-surface border border-border rounded-2xl p-4 mb-4">
+        <label class="text-[10px] font-bold tracking-widest text-muted uppercase block mb-2">2 · Estratto carta (Excel UniCredit)</label>
+        <label class="w-full bg-surface2 border border-border text-white font-semibold text-xs py-2.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> <span id="bankFileName">SCEGLI FILE EXCEL</span>
+          <input type="file" id="bankFile" accept=".xlsx,.xls,.csv" class="hidden">
+        </label>
+        <div id="bankColumns" class="hidden mt-3 space-y-2 text-xs"></div>
+      </div>
+
+      <!-- 3. Risultato -->
+      <div id="checkResult" class="hidden">
+        <div class="flex flex-wrap gap-1.5 mb-3" id="checkFilter">
+          <button class="chip px-3 py-1.5 rounded-full border border-border bg-surface2 text-muted text-xs font-medium sel !bg-accent !border-accent !text-black !font-bold" data-filter="all">Tutti</button>
+          <button class="chip px-3 py-1.5 rounded-full border border-border bg-surface2 text-muted text-xs font-medium" data-filter="pedaggio">🚗 Pedaggi</button>
+          <button class="chip px-3 py-1.5 rounded-full border border-border bg-surface2 text-muted text-xs font-medium" data-filter="cibo">🍽 Cibo</button>
+        </div>
+        <div id="checkSummary" class="grid grid-cols-3 gap-2 mb-3"></div>
+        <div id="checkLists" class="space-y-3"></div>
+      </div>
+    </div>
   </div>
   
   <div id="toast" class="toast bg-surface2 text-accent border border-accent/30"></div>
@@ -199,8 +257,17 @@
     // URL del Google Apps Script che riceve i dati
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyG4vImpIpe5AY6m0BG-BmZPFTznScz4UEPnRJdnTeDgsklvjZJzid_GNfgqNNUC0UI/exec';
 
-    // API Key per Gemini
-    const apiKey = "";
+    // Chiave e modello Gemini: si impostano dalla scheda CONTROLLO e restano solo su questo dispositivo
+    const DEFAULT_MODEL = 'gemini-flash-latest';
+    function getApiKey() {
+      try { return localStorage.getItem('gemini_api_key') || ''; } catch (e) { return ''; }
+    }
+    function getModel() {
+      try { return localStorage.getItem('gemini_model') || DEFAULT_MODEL; } catch (e) { return DEFAULT_MODEL; }
+    }
+    function geminiUrl() {
+      return `https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:generateContent?key=${encodeURIComponent(getApiKey())}`;
+    }
 
     // Funzione di utilità per chiamare Gemini con Retry automatico
     async function fetchGeminiWithRetry(url, payload, retries = 5) {
@@ -212,10 +279,15 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (!res.ok) {
+            const err = new Error(`HTTP ${res.status}`);
+            err.status = res.status;
+            throw err;
+          }
           return await res.json();
         } catch (err) {
-          if (i === retries - 1) throw err;
+          // Chiave o modello sbagliati: inutile riprovare
+          if (i === retries - 1 || [400, 401, 403, 404].includes(err.status)) throw err;
           await new Promise(r => setTimeout(r, delays[i]));
         }
       }
@@ -531,6 +603,7 @@
     document.getElementById('aiParseBtn').addEventListener('click', async () => {
       const text = aiInput.value.trim();
       if (!text) return showToast('Inserisci del testo prima di usare l\'IA!');
+      if (!getApiKey()) return showToast('Imposta la chiave Gemini nella scheda CONTROLLO.');
 
       const btn = document.getElementById('aiParseBtn');
       const originalHtml = btn.innerHTML;
@@ -558,8 +631,7 @@
       };
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        const data = await fetchGeminiWithRetry(url, payload);
+        const data = await fetchGeminiWithRetry(geminiUrl(), payload);
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!responseText) throw new Error("Risposta vuota dall'IA");
         
@@ -719,11 +791,429 @@
       showToast('✓ File CSV scaricato!');
     });
 
+    // --- CONTROLLO SCONTRINI / ESTRATTO CARTA ---
+    // All'IA va solo la foto degli scontrini; l'estratto della banca si legge e si confronta nel browser.
+
+    const CHECK_CATS = { pedaggio: '🚗 Pedaggio', cibo: '🍽 Cibo', carburante: '⛽ Carburante', parcheggio: '🅿️ Parcheggio', altro: '📦 Altro' };
+    const CAT_WORDS = {
+      pedaggio: ['AUTOSTRAD', 'PEDAGG', 'CASELLO', 'TANGENZIAL', 'AUTOSTRADE PER', 'STRADA DEI PARCHI', 'SATAP', 'BREBEMI', 'TEEM'],
+      cibo: ['BAR ', 'RISTOR', 'PIZZ', 'TRATTORIA', 'OSTERIA', 'AUTOGRILL', 'SARNI', 'CHEF EXPRESS', 'MYCHEF', 'MCDONALD', 'BURGER', 'CAFFE', 'CAFE', 'PANIFIC', 'FORNO', 'GELAT', 'SUSHI', 'TAVOLA CALDA', 'ROSTICC', 'PASTICC']
+    };
+    // Parole che compaiono in quasi tutte le descrizioni bancarie: non aiutano a riconoscere l'esercente
+    const STOP_WORDS = new Set(['SRL', 'SPA', 'SNC', 'SAS', 'POS', 'PAGAMENTO', 'PAGAM', 'CARTA', 'ACQUISTO', 'PRESSO', 'DEL', 'DELLA', 'DEI', 'PER', 'ITA', 'ITALIA', 'EUR', 'EURO', 'VIA', 'THE', 'DATA', 'ORA', 'OPERAZIONE']);
+
+    let receipts = [];
+    let bankRows = [];      // righe grezze del foglio Excel
+    let bankHeaderIdx = 0;  // riga d'intestazione trovata
+    let checkFilter = 'all';
+
+    function loadReceipts() {
+      try { receipts = JSON.parse(localStorage.getItem('scontrini_letti') || '[]'); } catch (e) { receipts = []; }
+    }
+    function saveReceipts() {
+      try { localStorage.setItem('scontrini_letti', JSON.stringify(receipts)); } catch (e) { console.error(e); }
+    }
+
+    function guessCategory(text) {
+      const t = ' ' + (text || '').toUpperCase() + ' ';
+      for (const [cat, words] of Object.entries(CAT_WORDS)) {
+        if (words.some(w => t.includes(w))) return cat;
+      }
+      return 'altro';
+    }
+
+    // Impostazioni IA
+    document.getElementById('apiKeyInput').value = getApiKey();
+    document.getElementById('modelInput').value = getModel();
+    if (!getApiKey()) document.getElementById('aiSettings').open = true;
+    document.getElementById('saveAiSettingsBtn').addEventListener('click', () => {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      const model = document.getElementById('modelInput').value.trim() || DEFAULT_MODEL;
+      try {
+        localStorage.setItem('gemini_api_key', key);
+        localStorage.setItem('gemini_model', model);
+        showToast('✓ Impostazioni salvate');
+        document.getElementById('aiSettings').open = false;
+      } catch (e) {
+        showToast('Impossibile salvare su questo dispositivo.');
+      }
+    });
+
+    // Riduce la foto prima dell'invio: meno dati da caricare, stessa leggibilità
+    function resizeImage(file, maxSide = 2400) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Immagine non leggibile')); };
+        img.src = url;
+      });
+    }
+
+    async function readReceiptPhoto(file) {
+      const base64 = await resizeImage(file);
+      const payload = {
+        contents: [{ parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: base64 } },
+          { text: 'Nella foto ci sono uno o più scontrini o ricevute. Elenca OGNI scontrino visibile, uno per elemento.' }
+        ] }],
+        systemInstruction: { parts: [{ text: 'Leggi scontrini fiscali italiani. Per ciascuno: data dello scontrino (YYYY-MM-DD), importo TOTALE pagato (non i singoli articoli, non l\'IVA), nome dell\'esercente come appare in alto (insegna o ragione sociale), categoria e metodo di pagamento. Se un dato non è leggibile metti leggibile=false. Non inventare valori.' }] },
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                data: { type: 'STRING', description: 'YYYY-MM-DD' },
+                importo: { type: 'NUMBER', description: 'Totale pagato, punto come decimale' },
+                esercente: { type: 'STRING' },
+                categoria: { type: 'STRING', enum: ['pedaggio', 'cibo', 'carburante', 'parcheggio', 'altro'] },
+                pagamento: { type: 'STRING', enum: ['carta', 'contanti', 'sconosciuto'] },
+                leggibile: { type: 'BOOLEAN' }
+              },
+              required: ['data', 'importo', 'esercente', 'categoria', 'pagamento', 'leggibile']
+            }
+          }
+        }
+      };
+      const data = await fetchGeminiWithRetry(geminiUrl(), payload);
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error('Risposta vuota');
+      return JSON.parse(text);
+    }
+
+    document.getElementById('receiptPhotos').addEventListener('change', async (ev) => {
+      const files = [...ev.target.files];
+      ev.target.value = '';
+      if (!files.length) return;
+      if (!getApiKey()) {
+        document.getElementById('aiSettings').open = true;
+        return showToast('Prima imposta la chiave Gemini.');
+      }
+      const label = document.getElementById('photoBtnText');
+      let found = 0, failed = 0;
+      for (let i = 0; i < files.length; i++) {
+        label.innerHTML = `<span class="spinner"></span> Lettura foto ${i + 1} di ${files.length}...`;
+        try {
+          const items = await readReceiptPhoto(files[i]);
+          items.forEach((r, j) => {
+            receipts.push({
+              id: `${Date.now()}_${i}_${j}`,
+              date: r.data || '',
+              amount: Math.abs(Number(r.importo) || 0),
+              merchant: r.esercente || '',
+              category: CHECK_CATS[r.categoria] ? r.categoria : guessCategory(r.esercente),
+              payment: r.pagamento || 'sconosciuto',
+              doubtful: r.leggibile === false,
+              photo: files[i].name
+            });
+          });
+          found += items.length;
+        } catch (err) {
+          console.error('Errore lettura foto', files[i].name, err);
+          failed++;
+        }
+        saveReceipts();
+        renderReceipts();
+      }
+      label.textContent = 'FOTOGRAFA / SCEGLI FOTO';
+      showToast(failed ? `Letti ${found} scontrini, ${failed} foto non lette` : `✓ Letti ${found} scontrini`);
+      runCheck();
+    });
+
+    // Ripiego senza IA: CSV con colonne data;importo;esercente (es. elenco fatto con Claude in chat)
+    document.getElementById('receiptCsv').addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      if (!file) return;
+      const lines = (await file.text()).replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+      const sep = (lines[0] || '').includes(';') ? ';' : ',';
+      let added = 0;
+      lines.forEach((line, i) => {
+        const cols = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+        const date = parseDateCell(cols[0]);
+        const amount = parseAmountCell(cols[1]);
+        if (!date || !amount) return; // salta intestazione e righe non valide
+        receipts.push({ id: `${Date.now()}_csv_${i}`, date, amount: Math.abs(amount), merchant: cols[2] || '', category: guessCategory(cols[2]), payment: 'sconosciuto', doubtful: false, photo: file.name });
+        added++;
+      });
+      saveReceipts();
+      renderReceipts();
+      runCheck();
+      showToast(`✓ Importati ${added} scontrini`);
+    });
+
+    document.getElementById('clearReceiptsBtn').addEventListener('click', () => {
+      if (!receipts.length || !confirm('Eliminare tutti gli scontrini letti?')) return;
+      receipts = [];
+      saveReceipts();
+      renderReceipts();
+      runCheck();
+    });
+
+    function renderReceipts() {
+      document.getElementById('receiptCount').textContent = receipts.length + ' letti';
+      const list = document.getElementById('receiptList');
+      const sorted = [...receipts].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      list.innerHTML = sorted.map(r => `
+        <div class="flex items-center gap-1.5 bg-surface2 border ${r.doubtful ? 'border-orange-500/60' : 'border-border'} rounded-lg px-2 py-1.5" data-rid="${r.id}">
+          <span class="text-sm" title="${CHECK_CATS[r.category] || ''}">${(CHECK_CATS[r.category] || '📦').split(' ')[0]}</span>
+          <input type="date" value="${escAttr(r.date)}" data-field="date" class="bg-transparent text-white mono text-[11px] w-[108px] outline-none">
+          <input type="text" value="${escAttr(r.merchant)}" data-field="merchant" class="flex-1 min-w-0 bg-transparent text-white text-xs outline-none">
+          <input type="number" step="0.01" value="${r.amount.toFixed(2)}" data-field="amount" class="bg-transparent text-accent mono text-xs w-[64px] text-right outline-none">
+          <button class="text-red-400/60 text-xs px-1 rdel" title="Elimina">✕</button>
+        </div>`).join('');
+      list.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const r = receipts.find(x => x.id === inp.closest('[data-rid]').dataset.rid);
+          if (!r) return;
+          if (inp.dataset.field === 'amount') r.amount = Math.abs(parseFloat(inp.value) || 0);
+          else r[inp.dataset.field] = inp.value;
+          if (inp.dataset.field === 'merchant' && guessCategory(r.merchant) !== 'altro') r.category = guessCategory(r.merchant);
+          r.doubtful = false;
+          saveReceipts();
+          runCheck();
+        });
+      });
+      list.querySelectorAll('.rdel').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.closest('[data-rid]').dataset.rid;
+          receipts = receipts.filter(x => x.id !== id);
+          saveReceipts();
+          renderReceipts();
+          runCheck();
+        });
+      });
+    }
+
+    // --- Lettura Excel della banca ---
+    function loadSheetJs() {
+      if (window.XLSX) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Libreria Excel non caricata (serve connessione)'));
+        document.head.appendChild(s);
+      });
+    }
+
+    function isoFromParts(y, m, d) {
+      if (y < 100) y += 2000;
+      if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31)) return '';
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    function parseDateCell(v) {
+      if (v === null || v === undefined || v === '') return '';
+      if (v instanceof Date && !isNaN(v)) return isoFromParts(v.getFullYear(), v.getMonth() + 1, v.getDate());
+      if (typeof v === 'number' && window.XLSX && v > 20000 && v < 80000) {
+        const d = XLSX.SSF.parse_date_code(v);
+        return d ? isoFromParts(d.y, d.m, d.d) : '';
+      }
+      const s = String(v).trim();
+      let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return isoFromParts(+m[1], +m[2], +m[3]);
+      m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+      if (m) return isoFromParts(+m[3], +m[2], +m[1]);
+      return '';
+    }
+
+    function parseAmountCell(v) {
+      if (typeof v === 'number') return v;
+      let s = String(v ?? '').replace(/[€\s]/g, '').replace(/EUR/i, '');
+      if (!s) return 0;
+      if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    }
+
+    // Sceglie la colonna più probabile in base al nome dell'intestazione
+    function pickColumn(header, patterns) {
+      for (const p of patterns) {
+        const idx = header.findIndex(h => p.test(String(h)));
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    }
+
+    document.getElementById('bankFile').addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      if (!file) return;
+      document.getElementById('bankFileName').textContent = file.name;
+      try {
+        await loadSheetJs();
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        bankRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+      } catch (err) {
+        console.error(err);
+        bankRows = [];
+        return showToast('File non leggibile: ' + err.message);
+      }
+
+      // Intestazione = prima riga che ha sia una colonna "data" sia una colonna di importo
+      bankHeaderIdx = bankRows.findIndex((row, i) => i < 40 &&
+        row.some(c => /data/i.test(String(c))) &&
+        row.some(c => /importo|addebit|uscit|ammontare|euro|dare/i.test(String(c))));
+      if (bankHeaderIdx < 0) bankHeaderIdx = 0;
+      const header = bankRows[bankHeaderIdx].map(h => String(h).trim());
+
+      const dateCol = pickColumn(header, [/data.*(operaz|acquist|transaz)/i, /^data$/i, /data/i]);
+      const amountCol = pickColumn(header, [/importo.*(eur|€)/i, /^importo/i, /addebit/i, /uscit|dare/i, /importo|ammontare|euro/i]);
+      const descCol = pickColumn(header, [/esercente/i, /descrizione/i, /dettagl|causale|operazione/i]);
+
+      const opts = (sel) => header.map((h, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${escHtml(h || 'Colonna ' + (i + 1))}</option>`).join('');
+      const box = document.getElementById('bankColumns');
+      box.innerHTML = `
+        <p class="text-muted">Controlla che le colonne siano giuste:</p>
+        <div class="flex items-center gap-2"><span class="w-24 text-muted">Data</span><select id="colDate" class="flex-1 bg-surface2 border border-border rounded-lg px-2 py-1.5 text-white">${opts(dateCol)}</select></div>
+        <div class="flex items-center gap-2"><span class="w-24 text-muted">Importo</span><select id="colAmount" class="flex-1 bg-surface2 border border-border rounded-lg px-2 py-1.5 text-white">${opts(amountCol)}</select></div>
+        <div class="flex items-center gap-2"><span class="w-24 text-muted">Descrizione</span><select id="colDesc" class="flex-1 bg-surface2 border border-border rounded-lg px-2 py-1.5 text-white">${opts(descCol)}</select></div>`;
+      box.classList.remove('hidden');
+      box.querySelectorAll('select').forEach(s => s.addEventListener('change', runCheck));
+      runCheck();
+    });
+
+    function getBankMovements() {
+      if (!bankRows.length) return [];
+      const dc = +document.getElementById('colDate').value;
+      const ac = +document.getElementById('colAmount').value;
+      const sc = +document.getElementById('colDesc').value;
+      return bankRows.slice(bankHeaderIdx + 1).map((row, i) => {
+        const date = parseDateCell(row[dc]);
+        const raw = parseAmountCell(row[ac]);
+        const desc = String(row[sc] ?? '').trim();
+        return { id: 'b' + i, date, amount: Math.abs(raw), desc, category: guessCategory(desc) };
+      }).filter(m => m.date && m.amount > 0);
+    }
+
+    function shiftDays(iso, n) {
+      return new Date(Date.parse(iso) + n * 86400000).toISOString().slice(0, 10);
+    }
+
+    function dayDiff(a, b) {
+      return Math.abs((Date.parse(a) - Date.parse(b)) / 86400000);
+    }
+
+    function nameWords(s) {
+      return new Set((s || '').toUpperCase().replace(/[^A-Z0-9À-Ü ]/g, ' ').split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w)));
+    }
+
+    // Abbinamento: stesso importo al centesimo, data entro 3 giorni (la banca registra dopo l'acquisto).
+    // A parità, vince la data più vicina e l'esercente che somiglia alla descrizione.
+    function matchReceipts(bank, recs) {
+      const pairs = [];
+      bank.forEach(m => {
+        const mw = nameWords(m.desc);
+        recs.forEach(r => {
+          if (!r.date || Math.abs(m.amount - r.amount) > 0.005) return;
+          const dd = dayDiff(m.date, r.date);
+          if (isNaN(dd) || dd > 3) return;
+          const sameName = [...nameWords(r.merchant)].some(w => mw.has(w) || [...mw].some(x => x.startsWith(w) || w.startsWith(x)));
+          const sameCat = m.category !== 'altro' && m.category === r.category;
+          pairs.push({ m, r, score: dd - (sameName ? 2 : 0) - (sameCat ? 1 : 0), sure: dd <= 2 && (sameName || sameCat) });
+        });
+      });
+      pairs.sort((a, b) => a.score - b.score);
+      const usedM = new Set(), usedR = new Set(), matches = [];
+      pairs.forEach(p => {
+        if (usedM.has(p.m.id) || usedR.has(p.r.id)) return;
+        usedM.add(p.m.id); usedR.add(p.r.id);
+        matches.push(p);
+      });
+      return {
+        matches,
+        bankOnly: bank.filter(m => !usedM.has(m.id)),
+        receiptOnly: recs.filter(r => !usedR.has(r.id))
+      };
+    }
+
+    document.querySelectorAll('#checkFilter .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#checkFilter .chip').forEach(c => c.classList.remove('sel', '!bg-accent', '!border-accent', '!text-black', '!font-bold'));
+        chip.classList.add('sel', '!bg-accent', '!border-accent', '!text-black', '!font-bold');
+        checkFilter = chip.dataset.filter;
+        runCheck();
+      });
+    });
+
+    function fmtDate(iso) {
+      if (!iso) return '?';
+      const [y, m, d] = iso.split('-');
+      return `${d}/${m}/${y.slice(2)}`;
+    }
+    function fmtEur(n) {
+      return '€ ' + n.toFixed(2).replace('.', ',');
+    }
+
+    function runCheck() {
+      const bank = getBankMovements();
+      const resultBox = document.getElementById('checkResult');
+      if (!bank.length) { resultBox.classList.add('hidden'); return; }
+      resultBox.classList.remove('hidden');
+
+      // Il periodo è quello dell'estratto: gli scontrini fuori periodo non contano come "mancanti in banca"
+      const dates = bank.map(m => m.date).sort();
+      const from = dates[0], to = dates[dates.length - 1];
+      const recsInPeriod = receipts.filter(r => !r.date || (r.date >= shiftDays(from, -3) && r.date <= shiftDays(to, 3)));
+
+      const res = matchReceipts(bank, recsInPeriod);
+      const keep = (cat) => checkFilter === 'all' || cat === checkFilter;
+      const matches = res.matches.filter(p => keep(p.m.category) || keep(p.r.category));
+      const bankOnly = res.bankOnly.filter(m => keep(m.category));
+      // Gli scontrini pagati in contanti non possono comparire in banca: si segnalano a parte
+      const receiptOnly = res.receiptOnly.filter(r => keep(r.category));
+
+      document.getElementById('checkSummary').innerHTML = [
+        ['✅', 'Abbinati', matches.length, 'text-green-400'],
+        ['⚠️', 'Senza scontrino', bankOnly.length, 'text-orange-400'],
+        ['❓', 'Non in banca', receiptOnly.length, 'text-sky-400']
+      ].map(([ic, lbl, n, cls]) => `
+        <div class="bg-surface border border-border rounded-xl p-2 text-center">
+          <div class="mono text-xl font-bold ${cls}">${n}</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider">${ic} ${lbl}</div>
+        </div>`).join('');
+
+      const row = (left, right, sub) => `
+        <div class="flex items-center justify-between bg-surface border border-border rounded-lg px-3 py-2">
+          <div class="min-w-0"><div class="text-xs text-white truncate">${left}</div><div class="text-[10px] text-muted truncate">${sub}</div></div>
+          <div class="mono text-xs font-bold text-accent ml-2 whitespace-nowrap">${right}</div>
+        </div>`;
+      const section = (title, cls, items) => items.length ? `
+        <div><div class="text-[10px] font-bold tracking-widest uppercase mb-1.5 ${cls}">${title}</div><div class="space-y-1.5">${items.join('')}</div></div>` : '';
+
+      document.getElementById('checkLists').innerHTML =
+        section('⚠️ In banca senza scontrino', 'text-orange-400', bankOnly.map(m =>
+          row(escHtml(m.desc || '(senza descrizione)'), fmtEur(m.amount), `${fmtDate(m.date)} · ${CHECK_CATS[m.category]}`))) +
+        section('❓ Scontrini non trovati in banca', 'text-sky-400', receiptOnly.map(r =>
+          row(escHtml(r.merchant || '(esercente illeggibile)'), fmtEur(r.amount), `${fmtDate(r.date)} · ${r.payment === 'contanti' ? 'pagato in contanti' : 'controlla data e importo'}`))) +
+        section('✅ Abbinati', 'text-green-400', matches.sort((a, b) => a.m.date.localeCompare(b.m.date)).map(p =>
+          row(`${p.sure ? '' : '🔸 '}${escHtml(p.r.merchant)}`, fmtEur(p.m.amount), `scontrino ${fmtDate(p.r.date)} · banca ${fmtDate(p.m.date)} · ${escHtml(p.m.desc)}`)));
+    }
+
+    loadReceipts();
+    renderReceipts();
+
     // Utility HTML Escaper
     function escHtml(s) {
       const d = document.createElement('div');
       d.textContent = s;
       return d.innerHTML;
+    }
+
+    function escAttr(s) {
+      return escHtml(s).replace(/"/g, '&quot;');
     }
 
     // Notifica Toast
